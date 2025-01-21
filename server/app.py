@@ -23,12 +23,43 @@ def bakeries():
     bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
     return make_response(  bakeries,   200  )
 
-@app.route('/bakeries/<int:id>')
+@app.route('/bakeries/<int:id>', methods = ['GET', 'PATCH']) 
 def bakery_by_id(id):
-
     bakery = Bakery.query.filter_by(id=id).first()
-    bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+    response = make_response({"error": "No such Resource"}, 404)
+    
+    if bakery:
+        if request.method == 'GET':
+            response = make_response(bakery.to_dict(), 200)
+        elif request.method == 'PATCH':
+            for attr in request.form:
+                setattr(bakery, attr, request.form.get(attr))
+            db.session.add(bakery)
+            db.session.commit()
+
+            response = make_response(bakery.to_dict(), 200)
+    return response
+
+@app.route('/baked_goods', methods = ['GET', 'POST'])
+def baked_goods():
+    response =  make_response({"error": "No such Resource"}, 404)
+    if request.method == 'GET':
+        all_baked_goods = [baked_good.to_dict() for baked_good in BakedGood.query.all()]
+        response =  make_response(all_baked_goods, 200)
+    else:
+        new_baked_good = BakedGood(
+            name = request.form.get('name'),
+            price = request.form.get('price'),
+            created_at = request.form.get('created_at'),
+            updated_at = request.form.get('updated_at'),
+            bakery_id = request.form.get('bakery_id')
+        )
+        db.session.add(new_baked_good)
+        db.session.commit()
+
+        new_baked_good_dict = new_baked_good.to_dict()
+        response = make_response(new_baked_good_dict, 201)
+    return response
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
@@ -44,6 +75,20 @@ def most_expensive_baked_good():
     most_expensive = BakedGood.query.order_by(BakedGood.price.desc()).limit(1).first()
     most_expensive_serialized = most_expensive.to_dict()
     return make_response( most_expensive_serialized,   200  )
+
+@app.route('/baked_goods/<int:id>', methods = ['GET', 'DELETE'])
+def delete_by_id(id):
+    bakedgood = BakedGood.query.filter_by(id = id).first()
+    response = make_response({"error": "No such Resource"}, 400)
+    if bakedgood:
+        if request.method == 'GET':
+            response = make_response(bakedgood.to_dict(), 200)
+        else:
+            db.session.delete(bakedgood)
+            db.session.commit()
+            response = make_response({"Success":"Baked Good deleted"}, 200)
+    return response
+
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
